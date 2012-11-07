@@ -18,6 +18,7 @@ from django.core.mail import send_mail
 
 from .models import Message
 from .router import get_router
+from django.forms.util import ErrorList
 
 
 class SecureForm(forms.Form):
