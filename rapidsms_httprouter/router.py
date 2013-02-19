@@ -13,6 +13,7 @@ from urllib2 import urlopen
 import time
 import re
 import datetime
+import traceback
 
 class HttpRouter(object, LoggerMixin):
     """
@@ -29,7 +30,7 @@ class HttpRouter(object, LoggerMixin):
 
         # we need to be started
         self.started = False
-        
+
     @classmethod
     def fetch_url(cls, url, params):
         """
@@ -40,7 +41,7 @@ class HttpRouter(object, LoggerMixin):
             response = urlopen(url, timeout=15)
         else:
             response = urlopen(url, " ", timeout=15)
-
+        
         return response
 
     @classmethod
@@ -62,8 +63,14 @@ class HttpRouter(object, LoggerMixin):
         backend, created = Backend.objects.get_or_create(name=backend)
         contact = HttpRouter.normalize_number(contact)
 
-        # create our connection
-        connection, created = Connection.objects.get_or_create(backend=backend, identity=contact)
+        # try to find a connection
+        connection = Connection.objects.filter(backend=backend, identity=contact)
+
+        # if not found, create it
+        if not connection:
+            connection = Connection.objects.create(backend=backend, identity=contact)
+        else:
+            connection = connection[0]
 
         # force to unicode
         text = unicode(text)
@@ -243,7 +250,7 @@ class HttpRouter(object, LoggerMixin):
         return send_msg
 
     @classmethod
-    def class_from_string(cls, class_name):
+    def definition_from_string(cls, class_name):
         """
         Used to load a class object dynamically by name
         """
@@ -260,6 +267,7 @@ class HttpRouter(object, LoggerMixin):
         the list of apps to be notified of incoming messages. Return the
         app instance.
         """
+        cls = None
         try:
             cls = AppBase.find(module_name)
         except Exception as e:
@@ -268,7 +276,7 @@ class HttpRouter(object, LoggerMixin):
         # couldn't find the app, is it a class name instead?
         if not cls:
             try:
-                cls = HttpRouter.class_from_string(module_name)
+                cls = HttpRouter.definition_from_string(module_name)
             except Exception as ee:
                 traceback.print_exc(ee)
 
